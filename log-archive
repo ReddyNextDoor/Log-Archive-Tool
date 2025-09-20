@@ -1,0 +1,119 @@
+#!/usr/bin/env python3
+"""
+Log Archive Tool
+
+Usage:
+  log-archive <log-directory>
+
+Description:
+  Compresses all files and subdirectories inside the provided <log-directory>
+  into a timestamped .tar.gz archive using the system `tar` command. The
+  archive is stored in an `archives/` directory located in the current working
+  directory. Each archive operation is logged with date and time to
+  `archives/archive.log`.
+
+Notes:
+  - Any directory named `archives` encountered inside <log-directory> is
+    skipped to avoid recursively archiving prior archives.
+  - Uses only standard OS tools and Python's standard library.
+"""
+
+import argparse
+import os
+import sys
+import subprocess
+from datetime import datetime
+import logging
+
+
+def make_archive(log_dir: str, archives_dir: str) -> str:
+    """Create a tar.gz archive from log_dir and place it in archives_dir.
+
+    Returns the full path to the created archive.
+    """
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    archive_name = f"logs_archive_{timestamp}.tar.gz"
+    archive_path = os.path.join(archives_dir, archive_name)
+
+    # Ensure destination dir exists
+    os.makedirs(archives_dir, exist_ok=True)
+
+    # Build tar command:
+    # -c create, -z gzip, -f file
+    # Exclude any nested directories named 'archives'
+    cmd = [
+        'tar', '-czf', archive_path,
+        '--exclude=archives',
+        "--exclude=*/archives/*",
+        '-C', log_dir, '.'
+    ]
+
+    subprocess.run(cmd, check=True)
+    return archive_path
+
+
+def setup_logger(log_file: str) -> logging.Logger:
+    os.makedirs(os.path.dirname(log_file), exist_ok=True)
+    logger = logging.getLogger('log-archive')
+    logger.setLevel(logging.INFO)
+
+    if not logger.handlers:
+        fh = logging.FileHandler(log_file, mode='a', encoding='utf-8')
+        fmt = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+        fh.setFormatter(fmt)
+        logger.addHandler(fh)
+    return logger
+
+
+def parse_args(argv):
+    parser = argparse.ArgumentParser(
+        prog='log-archive',
+        description='Archive logs into a timestamped .tar.gz and log the event.'
+    )
+    parser.add_argument(
+        'log_directory',
+        help='Path to the directory containing logs to be archived'
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv) -> int:
+    args = parse_args(argv)
+
+    log_dir = os.path.abspath(args.log_directory)
+    if not os.path.exists(log_dir):
+        print(f"Error: Path does not exist: {log_dir}", file=sys.stderr)
+        return 2
+    if not os.path.isdir(log_dir):
+        print(f"Error: Not a directory: {log_dir}", file=sys.stderr)
+        return 2
+
+    # Place archives/ and archive.log in the current working directory
+    cwd = os.getcwd()
+    archives_dir = os.path.join(cwd, 'archives')
+    log_file = os.path.join(archives_dir, 'archive.log')
+    logger = setup_logger(log_file)
+
+    try:
+        archive_path = make_archive(log_dir, archives_dir)
+    except FileNotFoundError as e:
+        # Likely the `tar` command is missing
+        logger.error(f"Failed to create archive (tar missing?): {e}")
+        print(f"Error: The required 'tar' command was not found on this system.", file=sys.stderr)
+        return 1
+    except subprocess.CalledProcessError as e:
+        logger.error(f"tar failed for {log_dir}: {e}")
+        print(f"Error: tar failed to create archive. See log for details.", file=sys.stderr)
+        return 1
+    except Exception as e:
+        logger.error(f"Failed to create archive from {log_dir}: {e}")
+        print(f"Error: Failed to create archive: {e}", file=sys.stderr)
+        return 1
+
+    logger.info(f"Archived contents of {log_dir} to {archive_path}")
+    print(archive_path)
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))
