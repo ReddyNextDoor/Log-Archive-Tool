@@ -1,0 +1,4 @@
+2025-09-20 10:00:01 [INFO] Application started successfully
+2025-09-20 10:00:02 [WARN] Database connection slow (2.3s)
+2025-09-20 10:00:03 [ERROR] Failed to process user request: timeout
+2025-09-20 10:00:04 [DEBUG] Memory usage: 45% (512MB/1GB)

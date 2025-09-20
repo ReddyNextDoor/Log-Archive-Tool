@@ -1,0 +1,5 @@
+[
+  {"timestamp": "2025-09-20T10:00:01Z", "level": "info", "service": "auth", "message": "User login successful", "user_id": 12345},
+  {"timestamp": "2025-09-20T10:00:02Z", "level": "error", "service": "payment", "message": "Credit card declined", "error_code": "CC_001"},
+  {"timestamp": "2025-09-20T10:00:03Z", "level": "warn", "service": "cache", "message": "Redis connection unstable", "retry_count": 3}
+]
